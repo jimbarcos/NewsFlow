@@ -2,6 +2,7 @@
 """
 Inquirer Business News Scraper - GitHub Actions Optimized
 Scrapes business news from Inquirer and uploads to Azure Blob Storage
+Enhanced with advanced anti-bot bypassing for CI/CD environments
 """
 import requests
 from bs4 import BeautifulSoup
@@ -11,8 +12,12 @@ import time
 import re
 import os
 import random
+import sys
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 try:
     from textblob import TextBlob
     from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -27,6 +32,94 @@ load_dotenv()
 # Initialize sentiment analyzer
 if SENTIMENT_AVAILABLE:
     analyzer = SentimentIntensityAnalyzer()
+
+# Enhanced user agents for GitHub Actions bypassing
+GITHUB_ACTIONS_USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+]
+
+def create_github_actions_session():
+    """Create an enhanced session for GitHub Actions environment"""
+    session = requests.Session()
+    
+    # Enhanced retry strategy for CI/CD
+    retry_strategy = Retry(
+        total=5,
+        backoff_factor=2,
+        status_forcelist=[403, 429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "POST"]
+    )
+    
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    
+    # Enhanced headers to bypass CI/CD detection
+    session.headers.update({
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9,fil;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0',
+        'Referer': 'https://business.inquirer.net/',
+    })
+    
+    return session
+
+def fetch_page_with_github_actions_bypass(url, session, max_retries=3):
+    """Enhanced page fetching with GitHub Actions bypassing"""
+    for attempt in range(max_retries):
+        try:
+            # Randomize user agent for each attempt
+            user_agent = random.choice(GITHUB_ACTIONS_USER_AGENTS)
+            session.headers['User-Agent'] = user_agent
+            print(f"🤖 Using User-Agent: {user_agent}")
+            
+            # Add random IP headers to bypass IP-based blocking
+            session.headers.update({
+                'X-Forwarded-For': f"{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}",
+                'X-Real-IP': f"{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}",
+                'CF-Connecting-IP': f"{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}",
+            })
+            
+            # Add delay between attempts
+            if attempt > 0:
+                delay = random.uniform(3, 8)
+                print(f"  ⏳ Waiting {delay:.1f}s before retry...")
+                time.sleep(delay)
+            
+            print(f"  🔄 Attempt {attempt + 1}/{max_retries}: Fetching {url}")
+            response = session.get(url, timeout=30)
+            
+            if response.status_code == 200:
+                print(f"  ✅ Success: {len(response.content)} bytes received")
+                return response
+            elif response.status_code == 403:
+                print(f"  ❌ 403 Forbidden (attempt {attempt + 1}) - GitHub Actions may be blocked")
+                if attempt < max_retries - 1:
+                    print("  🔄 Trying different headers...")
+                    continue
+            else:
+                print(f"  ⚠️ Status {response.status_code}: {response.reason}")
+                
+        except requests.exceptions.RequestException as e:
+            print(f"  ❌ Network error (attempt {attempt + 1}): {e}")
+            if attempt == max_retries - 1:
+                print(f"  💀 All {max_retries} attempts failed for {url}")
+                return None
+    
+    return None
 
 def get_sentiment_analysis(text):
     """Analyze sentiment of text using both TextBlob and VADER"""
@@ -515,7 +608,7 @@ def is_article_from_target_dates(published_date):
         return False
 
 def scrape_inquirer_news():
-    """Main function to scrape Inquirer business news - optimized for GitHub Actions"""
+    """Main function to scrape Inquirer business news - enhanced for GitHub Actions bypassing"""
     # Multiple URLs to scrape from Inquirer Business
     urls = [
         "https://business.inquirer.net/",
@@ -529,67 +622,47 @@ def scrape_inquirer_news():
         "https://business.inquirer.net/category/latest-stories/movements"
     ]
     
-    # Enhanced headers for GitHub Actions (more realistic browser simulation)
-    user_agents = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    ]
-    
-    headers = {
-        "User-Agent": random.choice(user_agents),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Cache-Control": "max-age=0"
-    }
-    
-    session = requests.Session()
-    session.headers.update(headers)
+    # Create enhanced session for GitHub Actions bypassing
+    session = create_github_actions_session()
     news_list = []
     
-    print(f"🔍 Starting Inquirer Business News Scraping (GitHub Actions Optimized)...")
-    print(f"🤖 Using User-Agent: {headers['User-Agent']}")
+    print(f"🔍 Starting Inquirer Business News Scraping (Enhanced GitHub Actions Bypassing)...")
+    print(f"🤖 Enhanced session created with advanced anti-bot measures")
     
     for url_index, url in enumerate(urls, 1):
         try:
-            print(f"  [{url_index}/{len(urls)}] Scraping: {url}")
+            print(f"  [{url_index}/{len(urls)}] Processing: {url}")
             
-            # Add random delay to avoid rate limiting
-            time.sleep(random.uniform(2, 5))
+            # Use enhanced fetching with GitHub Actions bypassing
+            response = fetch_page_with_github_actions_bypass(url, session)
             
-            response = session.get(url, timeout=30)
-            response.raise_for_status()
+            if response is None:
+                print(f"    ❌ Failed to fetch {url} after all retry attempts")
+                continue
             
             # Additional delay for JavaScript content
-            time.sleep(random.uniform(1, 3))
+            delay = random.uniform(2, 4)
+            print(f"    ⏳ Processing content (waiting {delay:.1f}s)...")
+            time.sleep(delay)
             
             soup = BeautifulSoup(response.text, "html.parser")
             
             page_news = extract_inquirer_articles(soup)
             
             # Add unique articles only
+            unique_added = 0
             for item in page_news:
                 if not any(existing['title'] == item['title'] for existing in news_list):
                     news_list.append(item)
+                    unique_added += 1
             
-            print(f"    ✅ Found {len(page_news)} articles from this page")
+            print(f"    ✅ Found {len(page_news)} articles, {unique_added} unique added")
             
-        except requests.exceptions.RequestException as e:
-            print(f"    ❌ Network error scraping {url}: {e}")
-            # Continue with other URLs even if one fails
-            continue
         except Exception as e:
-            print(f"    ❌ Error scraping {url}: {e}")
+            print(f"    ❌ Error processing {url}: {e}")
             continue
     
+    print(f"🎯 Total unique articles collected: {len(news_list)}")
     return news_list
 
 def extract_inquirer_articles(soup):

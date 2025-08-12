@@ -7,6 +7,7 @@ Optimized for GitHub Actions workflow with enhanced error handling
 
 import os
 import sys
+import pandas as pd
 from datetime import datetime
 import importlib
 from dotenv import load_dotenv

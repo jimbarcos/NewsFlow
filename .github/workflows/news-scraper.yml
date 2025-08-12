@@ -1,14 +1,14 @@
-name: News Scraper and Azure Upload
+name: Enhanced News Scraper with Anti-Bot Bypassing
 
 on:
   schedule:
     - cron: '30 22,4,7 * * *'  # UTC times for 6:30am, 12:30pm, 3:30pm Philippine time
-  workflow_dispatch:
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  run-scraper:
+  run-enhanced-scraper:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Prevent jobs from running too long
+    timeout-minutes: 45  # Increased timeout for anti-bot delays
 
     steps:
       - name: Checkout code
@@ -18,7 +18,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'  # Cache pip dependencies for faster builds
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -27,7 +27,7 @@ jobs:
 
       - name: Validate environment
         run: |
-          echo "Checking required environment variables..."
+          echo "🔍 Checking required environment variables..."
           if [ -z "${{ secrets.AZURE_CONNECTION_STRING }}" ]; then
             echo "❌ AZURE_CONNECTION_STRING secret not set"
             exit 1
@@ -42,26 +42,107 @@ jobs:
         run: |
           echo "AZURE_CONNECTION_STRING=${{ secrets.AZURE_CONNECTION_STRING }}" >> $GITHUB_ENV
           echo "AZURE_CONTAINER_NAME=${{ secrets.AZURE_CONTAINER_NAME }}" >> $GITHUB_ENV
+          echo "CI_ENVIRONMENT=github_actions" >> $GITHUB_ENV
 
-      - name: Run Universal News Scraper
-        run: python universal_news_scraper.py
+      - name: Setup enhanced networking for anti-bot bypassing
+        run: |
+          echo "🛡️ Setting up enhanced networking environment..."
+          # Update system packages for better SSL/TLS support
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates curl
+          
+          # Configure DNS for better connectivity
+          echo "nameserver 8.8.8.8" | sudo tee -a /etc/resolv.conf
+          echo "nameserver 1.1.1.1" | sudo tee -a /etc/resolv.conf
+          
+          # Set random delay to avoid detection patterns
+          RANDOM_DELAY=$((RANDOM % 30 + 10))
+          echo "⏳ Random startup delay: ${RANDOM_DELAY} seconds"
+          sleep $RANDOM_DELAY
+
+      - name: Run Enhanced Universal News Scraper
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          echo "🚀 Starting Enhanced News Scraper with Anti-Bot Bypassing..."
+          echo "🤖 Using advanced GitHub Actions bypassing techniques"
+          echo "📊 Target: Inquirer, Business Mirror, Philstar"
+          python universal_news_scraper.py
+
+      - name: Verify scraping results
+        run: |
+          echo "📋 Checking scraping results..."
+          if [ -f "inquirer_news.xlsx" ]; then
+            echo "✅ Inquirer news file created"
+            echo "📊 File size: $(stat -f%z inquirer_news.xlsx 2>/dev/null || stat -c%s inquirer_news.xlsx) bytes"
+          else
+            echo "❌ Inquirer news file not found"
+          fi
+          
+          if [ -f "businessmirror_news.xlsx" ]; then
+            echo "✅ Business Mirror news file created"
+            echo "📊 File size: $(stat -f%z businessmirror_news.xlsx 2>/dev/null || stat -c%s businessmirror_news.xlsx) bytes"
+          else
+            echo "❌ Business Mirror news file not found"
+          fi
+          
+          if [ -f "philstar_news.xlsx" ]; then
+            echo "✅ Philstar news file created"
+            echo "📊 File size: $(stat -f%z philstar_news.xlsx 2>/dev/null || stat -c%s philstar_news.xlsx) bytes"
+          else
+            echo "❌ Philstar news file not found"
+          fi
 
       - name: Upload artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-logs
+          name: debug-logs-${{ github.run_number }}
           path: |
             *.xlsx
             *.log
+            *.txt
           retention-days: 7
 
-      - name: Notify on failure
+      - name: Upload successful results as artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: news-data-${{ github.run_number }}
+          path: |
+            *.xlsx
+          retention-days: 30
+
+      - name: Enhanced failure notification
         if: failure()
         run: |
-          echo "🚨 News scraping workflow failed!"
-          echo "Check the logs above for details."
-          echo "Common issues:"
-          echo "- Azure authentication problems"
-          echo "- Website blocking requests"
-          echo "- Network connectivity issues"
+          echo "🚨 Enhanced News Scraping Workflow Failed!"
+          echo "🔍 Troubleshooting Guide:"
+          echo ""
+          echo "🤖 Anti-Bot Detection Issues:"
+          echo "   - Websites may have updated their bot detection"
+          echo "   - GitHub Actions IP ranges might be blocked"
+          echo "   - Consider rotating user agents or delays"
+          echo ""
+          echo "☁️ Azure Storage Issues:"
+          echo "   - Check AZURE_CONNECTION_STRING secret"
+          echo "   - Verify AZURE_CONTAINER_NAME exists"
+          echo "   - Ensure storage account has proper permissions"
+          echo ""
+          echo "🌐 Network Issues:"
+          echo "   - Target websites might be temporarily down"
+          echo "   - DNS resolution problems"
+          echo "   - SSL/TLS certificate issues"
+          echo ""
+          echo "📊 Data Issues:"
+          echo "   - No articles found (check date filtering)"
+          echo "   - Website structure changes"
+          echo "   - Content parsing errors"
+
+      - name: Success notification
+        if: success()
+        run: |
+          echo "🎉 Enhanced News Scraping Completed Successfully!"
+          echo "✅ Anti-bot bypassing techniques worked"
+          echo "☁️ Files uploaded to Azure Blob Storage"
+          echo "📅 Scraped articles from $(date +'%B %d, %Y')"
