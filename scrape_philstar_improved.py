@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+"""
+Philstar Business News Scraper - GitHub Actions Optimized
+Scrapes business news from Philstar and uploads to Azure Blob Storage
+"""
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -5,6 +10,7 @@ from datetime import datetime, timedelta
 import time
 import re
 import os
+import random
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 try:
@@ -15,7 +21,7 @@ except ImportError:
     SENTIMENT_AVAILABLE = False
     print("Note: Sentiment analysis libraries not available. Install with: pip install textblob vaderSentiment")
 
-# Load environment variables
+# Load environment variables (works both locally and in GitHub Actions)
 load_dotenv()
 
 # Initialize sentiment analyzer
@@ -350,7 +356,7 @@ def is_article_from_target_dates(published_date):
         return False
 
 def scrape_philstar_with_scroll():
-    """Scrape Philstar business news with pagination/infinite scroll simulation"""
+    """Scrape Philstar business news - GitHub Actions Optimized"""
     # Multiple Philstar business sections to scrape
     base_urls = [
         "https://www.philstar.com/business",
@@ -359,20 +365,36 @@ def scrape_philstar_with_scroll():
         "https://www.philstar.com/business/telecoms"
     ]
     
+    # Enhanced headers for GitHub Actions (more realistic browser simulation)
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ]
+    
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
+        "User-Agent": random.choice(user_agents),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Cache-Control": "max-age=0",
+        "DNT": "1"
     }
     
     session = requests.Session()
+    session.headers.update(headers)
     all_links = set()  # Use set to avoid duplicates
     all_articles = []
     
-    print("📰 Scraping Philstar business news from multiple sections...")
+    print("📰 Scraping Philstar business news (GitHub Actions Optimized)...")
+    print(f"🤖 Using User-Agent: {headers['User-Agent']}")
     
     # Try to get articles from multiple base URLs and their pages
     pages_to_try = []
@@ -386,8 +408,15 @@ def scrape_philstar_with_scroll():
     for page_url in pages_to_try:
         try:
             print(f"  🔍 Fetching: {page_url}")
-            response = session.get(page_url, headers=headers)
+            
+            # Add random delay to avoid rate limiting
+            time.sleep(random.uniform(2, 5))
+            
+            response = session.get(page_url, timeout=30)
             response.raise_for_status()
+            
+            # Additional delay for JavaScript content
+            time.sleep(random.uniform(1, 3))
             
             soup = BeautifulSoup(response.text, "html.parser")
             
@@ -576,15 +605,19 @@ def scrape_philstar_with_scroll():
     return all_articles
 
 def scrape_philstar_news():
-    """Main function to scrape Philstar business news"""
-    print("🔍 Starting Philstar Business News Scraping...")
+    """Main function to scrape Philstar business news - GitHub Actions Optimized"""
+    print("🔍 Starting Philstar Business News Scraping (GitHub Actions Optimized)...")
     
     # Scrape articles with improved method
     news_data = scrape_philstar_with_scroll()
     
     if not news_data:
         print("⚠️ No articles found matching the criteria")
-        return
+        print("   This might indicate:")
+        print("   • Website structure changes")
+        print("   • Rate limiting or blocking")
+        print("   • Network connectivity issues")
+        exit(1)
     
     print(f"✅ Successfully scraped {len(news_data)} articles from Philstar Business")
     
@@ -598,6 +631,8 @@ def scrape_philstar_news():
     
     # Save to Excel with table
     filename = "philstar_news.xlsx"
+    print(f"💾 Saving to {filename}...")
+    
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='Philstar News', index=False)
         
@@ -606,79 +641,127 @@ def scrape_philstar_news():
         worksheet = writer.sheets['Philstar News']
         
         # Create a table
-        from openpyxl.worksheet.table import Table, TableStyleInfo
-        table = Table(displayName="NewsTable2", ref=worksheet.dimensions)
-        style = TableStyleInfo(name="TableStyleMedium9", showFirstColumn=False,
-                             showLastColumn=False, showRowStripes=True, showColumnStripes=True)
-        table.tableStyleInfo = style
-        worksheet.add_table(table)
+        try:
+            from openpyxl.worksheet.table import Table, TableStyleInfo
+            table = Table(displayName="NewsTable2", ref=worksheet.dimensions)
+            style = TableStyleInfo(name="TableStyleMedium9", showFirstColumn=False,
+                                 showLastColumn=False, showRowStripes=True, showColumnStripes=True)
+            table.tableStyleInfo = style
+            worksheet.add_table(table)
+            print(f"📊 Saved {len(df)} news items to {filename} (with table 'NewsTable2')")
+        except Exception as e:
+            print(f"⚠️ Could not add Excel table: {e}")
+            print(f"📊 Saved {len(df)} news items to {filename}")
     
-    print(f"📊 Saved {len(df)} news items to {filename} (with table 'NewsTable2')")
+    # Upload to Azure Blob Storage with retry logic
+    print(f"\n☁️ Uploading to Azure Blob Storage...")
+    blob_name = "philstar_news.xlsx"
     
-    # Upload to Azure Blob Storage
-    try:
-        print(f"\n☁️ Uploading to Azure Blob Storage...")
+    # Retry upload up to 3 times
+    upload_success = False
+    for attempt in range(3):
+        if attempt > 0:
+            print(f"🔄 Retry attempt {attempt + 1}/3...")
+            time.sleep(5)  # Wait before retry
         
-        # Azure connection setup
-        connection_string = os.getenv('AZURE_CONNECTION_STRING')
-        container_name = os.getenv('AZURE_CONTAINER_NAME')
-        blob_path = "Data/NSI/data/Azure Databricks/Automation Scripts/News/philstar_news.xlsx"
-        
-        if connection_string:
-            blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-            
-            # Upload file
-            with open(filename, "rb") as data:
-                blob_service_client.get_blob_client(
-                    container=container_name, 
-                    blob=blob_path
-                ).upload_blob(data, overwrite=True)
-            
-            print(f"✅ Successfully uploaded {filename} to Azure Blob Storage")
-            print(f"📁 Container: {container_name}")
-            print(f"🗂️ Path: {blob_path}")
-        else:
-            print("⚠️ Azure connection string not found in environment variables")
-    
-    except Exception as e:
-        print(f"❌ Error uploading to Azure: {e}")
-    
-    print(f"✅ Complete! Philstar news file uploaded to Azure successfully.")
+        upload_success = upload_to_azure_blob(filename, blob_name)
+        if upload_success:
+            break
+
+    if upload_success:
+        print(f"✅ Complete! Philstar news file uploaded to Azure successfully.")
+    else:
+        print(f"⚠️ Local file saved but Azure upload failed after 3 attempts.")
+        # Exit with error code for GitHub Actions to detect failure
+        exit(1)
 
 def upload_to_azure_blob(file_path, blob_name):
-    """Upload file to Azure Blob Storage"""
+    """Upload file to Azure Blob Storage - GitHub Actions Optimized"""
     try:
-        # Get Azure connection details from environment
+        # Get Azure connection details from environment variables
+        # This works for both local .env files and GitHub Actions secrets
         connection_string = os.getenv('AZURE_CONNECTION_STRING')
         container_name = os.getenv('AZURE_CONTAINER_NAME')
         blob_subfolder = "Data/NSI/data/Azure Databricks/Automation Scripts/News/"
         
-        if not connection_string or not container_name:
-            print("❌ Error: AZURE_CONNECTION_STRING or AZURE_CONTAINER_NAME not found in .env file")
+        print(f"🔍 Azure Environment Check:")
+        print(f"   Connection String: {'✅ Found' if connection_string else '❌ Missing'}")
+        print(f"   Container Name: {'✅ Found' if container_name else '❌ Missing'}")
+        
+        if not connection_string:
+            print("❌ Error: AZURE_CONNECTION_STRING environment variable not found")
+            print("   For GitHub Actions: Check repository secrets")
+            print("   For local: Check .env file")
+            return False
+            
+        if not container_name:
+            print("❌ Error: AZURE_CONTAINER_NAME environment variable not found")
+            print("   For GitHub Actions: Check repository secrets")
+            print("   For local: Check .env file")
             return False
         
-        # Create the BlobServiceClient
+        # Create the BlobServiceClient with error handling
+        print(f"🔗 Creating Azure Blob Service Client...")
         blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         
         # Create the full blob path
         blob_path = blob_subfolder + blob_name
+        print(f"📁 Target path: {container_name}/{blob_path}")
         
-        # Upload the file
+        # Verify file exists before upload
+        if not os.path.exists(file_path):
+            print(f"❌ Error: File {file_path} does not exist")
+            return False
+            
+        # Get file size for progress info
+        file_size = os.path.getsize(file_path) / 1024  # KB
+        print(f"📦 Uploading file: {file_path} ({file_size:.1f} KB)")
+        
+        # Upload the file with progress indication
         with open(file_path, "rb") as data:
             blob_client = blob_service_client.get_blob_client(
                 container=container_name, 
                 blob=blob_path
             )
+            print(f"⬆️ Starting upload...")
             blob_client.upload_blob(data, overwrite=True)
         
         print(f"✅ Successfully uploaded {blob_name} to Azure Blob Storage")
         print(f"📁 Container: {container_name}")
-        print(f"🗂️ Path: {blob_path}")
+        print(f"🗂️ Full Path: {blob_path}")
         return True
         
     except Exception as e:
         print(f"❌ Error uploading to Azure Blob Storage: {e}")
+        print(f"   Error type: {type(e).__name__}")
+        if "signature" in str(e).lower():
+            print("   💡 This might be an authentication issue")
+            print("   💡 Check if AZURE_CONNECTION_STRING is correctly set")
+        elif "404" in str(e):
+            print("   💡 Container might not exist or connection string is invalid")
+        elif "403" in str(e):
+            print("   💡 Permission denied - check access keys and permissions")
         return False
 
 if __name__ == "__main__":
-    scrape_philstar_news()
+    print("🚀 Starting Philstar Business News Scraping (GitHub Actions Optimized)...")
+    print(f"⏰ Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    # Environment validation
+    print(f"\n🔍 Environment Check:")
+    azure_conn = os.getenv('AZURE_CONNECTION_STRING')
+    azure_container = os.getenv('AZURE_CONTAINER_NAME')
+    print(f"   AZURE_CONNECTION_STRING: {'✅ Set' if azure_conn else '❌ Missing'}")
+    print(f"   AZURE_CONTAINER_NAME: {'✅ Set' if azure_container else '❌ Missing'}")
+    
+    if not azure_conn or not azure_container:
+        print("\n⚠️ Warning: Azure environment variables missing")
+        print("   Script will continue but upload will fail")
+    
+    try:
+        scrape_philstar_news()
+        print(f"\n⏰ Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    except Exception as e:
+        print(f"\n❌ Script failed with error: {e}")
+        print(f"   Error type: {type(e).__name__}")
+        exit(1)

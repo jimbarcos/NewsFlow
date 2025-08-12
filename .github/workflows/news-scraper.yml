@@ -8,6 +8,7 @@ on:
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # Prevent jobs from running too long
 
     steps:
       - name: Checkout code
@@ -17,11 +18,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'  # Cache pip dependencies for faster builds
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Validate environment
+        run: |
+          echo "Checking required environment variables..."
+          if [ -z "${{ secrets.AZURE_CONNECTION_STRING }}" ]; then
+            echo "❌ AZURE_CONNECTION_STRING secret not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.AZURE_CONTAINER_NAME }}" ]; then
+            echo "❌ AZURE_CONTAINER_NAME secret not set"
+            exit 1
+          fi
+          echo "✅ All required secrets are configured"
 
       - name: Set environment variables
         run: |
@@ -30,3 +45,23 @@ jobs:
 
       - name: Run Universal News Scraper
         run: python universal_news_scraper.py
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs
+          path: |
+            *.xlsx
+            *.log
+          retention-days: 7
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "🚨 News scraping workflow failed!"
+          echo "Check the logs above for details."
+          echo "Common issues:"
+          echo "- Azure authentication problems"
+          echo "- Website blocking requests"
+          echo "- Network connectivity issues"
