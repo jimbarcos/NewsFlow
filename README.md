@@ -57,8 +57,8 @@ Advanced automated web scraping system that extracts news from major Philippine 
 
 ### **Azure Cloud Integration**
 - **Storage**: Azure Blob Storage with organized folder structure
-- **Container**: `nsi-and-sales-forecasting`
-- **Path**: `Data/NSI/data/Azure Databricks/Automation Scripts/News/`
+- **Container**: `xxx`
+- **Path**: `xxxx`
 - **Format**: Excel (.xlsx) with structured tables and automatic timestamps
 - **Reliability**: Automatic retry logic and connection validation
 
